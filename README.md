@@ -12,8 +12,11 @@ ChefFlow is a production-quality, responsive, and highly accessible daily meal p
 4. **Interactive Shopping Checklist:** Segregates missing items, lists prices/quantities, and allows checking them off in real-time with automatic cost adjustments.
 5. **Interactive Cooking To-Do List:** Consolidates cooking tasks into chronologically ordered lists, showing interactive checkboxes and a progress bar.
 6. **Budget Feasibility:** Compares estimated menu prep costs against daily budgets, rendering warnings and optimization suggestions if exceeded.
-7. **Local Caching:** Automatically persists preferences, meal plans, grocery checklists, and cooking checklist progress inside `localStorage` across page reloads.
-8. **Exportable Plan:** Supports printing a clean, standard page layout using custom Tailwind print sheets (`print:hidden` styles).
+7. **Client-Side API Key Input:** Provides a secure password-masked API Key input in the header, storing the key in `localStorage` and forwarding it via `x-gemini-api-key` headers for dynamic backend initialization.
+8. **Interactive Cooking Team UI:** Manage a cooking crew (e.g. roommates or family helpers). Assign tasks in the cooking checklist to crew members, display initials badges, and filter tasks so active cooks see only their assigned items.
+9. **Dark & Light Themes:** Toggle between a stunning, high-contrast Slate Space dark mode and a sleek, polished glassmorphic light mode with high-contrast elements.
+10. **Local Caching:** Automatically persists preferences, meal plans, team helpers, grocery checklists, and cooking checklist progress inside `localStorage` across page reloads.
+11. **Exportable Plan:** Supports printing a clean, standard page layout using custom Tailwind print sheets (`print:hidden` styles).
 
 ---
 
@@ -22,7 +25,7 @@ ChefFlow is a production-quality, responsive, and highly accessible daily meal p
 * **Framework:** Next.js 15/16 (App Router) & React 19
 * **Styling:** Tailwind CSS (v4)
 * **Validation:** Zod (Type-safe input/output schemas)
-* **Testing:** Vitest & React Testing Library (15+ passing tests)
+* **Testing:** Vitest & React Testing Library (20 passing tests)
 * **Icons:** Lucide React
 
 ### Folder Layout
@@ -31,16 +34,16 @@ ChefFlow is a production-quality, responsive, and highly accessible daily meal p
 /
 ├── app/
 │   ├── api/plan/route.ts    # Server endpoint validating params & executing planner
-│   ├── globals.css          # Tailwind imports & custom variables
+│   ├── globals.css          # Tailwind imports, theme declarations & custom variables
 │   ├── layout.tsx           # Global HTML shell
-│   └── page.tsx             # Main dashboard page (state manager & layouts)
+│   └── page.tsx             # Main dashboard page (state manager, team UI & layouts)
 ├── components/
-│   ├── PreferencesForm.tsx      # Accessible inputs, validation, tags handling
+│   ├── PreferencesForm.tsx      # Accessible inputs, validation, adaptive theme styles
 │   ├── MealPlanSection.tsx      # Breakfast/Lunch/Dinner/Snacks tabs & cards
-│   ├── GroceryListSection.tsx   # Segregated shopping checklist
+│   ├── GroceryListSection.tsx   # Segregated shopping checklist with progress gauge
 │   ├── SubstitutionSection.tsx  # Dynamic swaps list with reason summaries
 │   ├── BudgetAnalysisSection.tsx# Feasibility metrics, status cards & gauges
-│   └── CookingChecklist.tsx     # Chronological task checklists & progress bar
+│   └── CookingChecklist.tsx     # Chronological task checklists, assignee badges, selectors & filters
 ├── lib/
 │   ├── gemini.ts                # Gemini API Structured JSON Client
 │   └── mockData.ts              # Local mock fallback planner (offline test sandbox)
@@ -66,11 +69,12 @@ Clone the repository, navigate into the directory, and install:
 npm install
 ```
 
-### 2. Set Up Environment Variables
+### 2. Set Up Environment Variables / UI Keys
 Create a `.env.local` file in the root folder:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
+*Alternatively, you can supply your `GEMINI_API_KEY` directly from the client-side input in the header.*
 > [!NOTE]
 > If **no API key is provided**, ChefFlow automatically runs in **Sandbox Mode**. It will generate simulated mock cooking plans customized to your parameters, ensuring the app remains fully functional and testable immediately.
 
@@ -78,7 +82,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) (or `http://localhost:3001` if specified) in your browser.
 
 ### 4. Running the Tests
 We use Vitest as our runner:
@@ -112,27 +116,22 @@ Instead of fuzzy-comparing ingredient arrays in $O(n \cdot m)$ time, `ingredient
 * **Sub-phrase checking:** Checks string containment (`organic eggs` matches `eggs`) with a length constraint to prevent false hits (like `oil` matching `soil`).
 * **De-duplication:** Gathers duplicate required items across meals and merges their prices and quantities.
 
+### 3. Crew Assignment & Filtering
+Checkpoint assignees are kept in memory and synchronized under the `FullCookingDashboardData` interface. Filtering checks are implemented using standard state array mappings, avoiding expensive database queries.
+
 ---
 
 ## 🔒 Security Parameters
 
 * **Strict Input Sanitization:** Centralized Zod schemas parse and transform all incoming client requests on the server before invoking API calls.
 * **XSS Shielding:** React's JSX automatically escapes text content. No custom `dangerouslySetInnerHTML` is used.
-* **API Secrets Isolation:** The Gemini API client executes strictly on the server-side Next.js route handler. `GEMINI_API_KEY` is never exposed to client-side bundles.
+* **API Secrets Isolation:** If specified on server environment variables, the Gemini key remains fully hidden from clients. If supplied via client-side UI, keys are masked using password text types for privacy.
 
 ---
 
 ## ♿ Accessibility Compliance (WCAG 2.1 AA)
 
-* **Keyboard Navigation:** Native interactive elements (inputs, select buttons) are used with visible `:focus-visible` ring outlines.
+* **Keyboard Navigation:** Native interactive elements (inputs, select buttons, select lists) are used with visible `:focus-visible` ring outlines.
 * **Labeling:** Every form control is bound to a semantic `<label>` or described by an appropriate `aria-describedby` error element.
 * **ARIA Live announcements:** Dynamic states (loading, completions) report screen-reader updates using `aria-live="polite"` or `role="alert"`.
-* **Contrast-Ratio compliance:** Color parameters use Tailwind's `slate-950` backgrounds matched with high-value `indigo-300`, `emerald-300`, and `rose-300` text to ensure contrast ratios conform to WCAG AAA standards.
-
----
-
-## ⚡ Performance Optimizations
-
-* **Memoized Calculations:** Sums and list divisions are computed locally in the render flow using React state, avoiding unnecessary re-renders.
-* **Print Stylesheets:** Specific stylesheets exclude heavy layout wrappers during printing, ensuring pages fit clean on A4 papers.
-* **Bundle Efficiency:** Tree-shakeable libraries (Zod, Lucide Icons) are used to keep final bundle footprint small.
+* **Contrast-Ratio compliance:** Colors satisfy AA contrast ratios in both light mode (using grey-slate text on white backgrounds) and dark mode (using glowing colors on dark backdrops).
